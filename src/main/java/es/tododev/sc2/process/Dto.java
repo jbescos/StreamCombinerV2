@@ -30,5 +30,11 @@ public class Dto {
 	public void setAmount(BigDecimal amount) {
 		this.amount = amount;
 	}
+
+	@Override
+	public String toString() {
+		return "Dto [timestamp=" + timestamp + ", amount=" + amount + "]";
+	}
+	
 	
 }

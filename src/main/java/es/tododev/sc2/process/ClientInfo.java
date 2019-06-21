@@ -29,14 +29,14 @@ public class ClientInfo implements IClientInfo {
 					BigDecimal total = last.getAmount().add(dto.getAmount());
 					dto.setAmount(total);
 				} else if(compareResult < 0) {
-					streamProcessor.notify(last, this);
+					streamProcessor.push(last, this);
 				} else {
 					throw new StreamCombinerException(ErrorCodes.OBSOLETE);
 				}
 			}
 			
 			if(dto == Dto.LAST_TO_SEND) {
-				streamProcessor.notify(Dto.LAST_TO_SEND, this);
+				streamProcessor.push(Dto.LAST_TO_SEND, this);
 			}
 			last = dto;
 		}
@@ -56,7 +56,7 @@ public class ClientInfo implements IClientInfo {
 
 	@Override
 	public void start() {
-		streamProcessor.notify(Dto.FIRST_TO_SEND, this);
+		streamProcessor.push(Dto.FIRST_TO_SEND, this);
 	}
 	
 }

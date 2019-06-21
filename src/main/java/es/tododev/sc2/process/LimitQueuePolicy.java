@@ -1,6 +1,8 @@
 package es.tododev.sc2.process;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public class LimitQueuePolicy implements IKickPolicy {
 	
@@ -17,8 +19,8 @@ public class LimitQueuePolicy implements IKickPolicy {
 
 
 	@Override
-	public boolean isKickRequired(Map<Dto, IClientInfo> queue) {
-		return queue.size() > limitSize;
+	public boolean isKickRequired(Map<Long, List<Entry<Dto, IClientInfo>>> transactions) {
+		return transactions.size() > limitSize;
 	}
 
 }

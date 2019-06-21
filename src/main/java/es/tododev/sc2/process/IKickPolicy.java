@@ -1,9 +1,11 @@
 package es.tododev.sc2.process;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public interface IKickPolicy {
 
-	boolean isKickRequired(Map<Dto, IClientInfo> queue);
+	boolean isKickRequired(Map<Long, List<Entry<Dto, IClientInfo>>> transactions);
 	
 }
