@@ -1,0 +1,14 @@
+
+
+<<Stream Combiner>>
+
+Help information:
+	-sockets            <numeric value>     Maximum number of open connections. Default 4.
+	-port               <numeric value>     Port of the server socket. Default 22222.
+	
+Example:
+	$ java -jar target/streamcombinerv2-1.0-jar-with-dependencies.jar -port 23456 -sockets 4
+
+Author:
+	Jorge Bescos (jorge.bescos@gmail.com)
+	

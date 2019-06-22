@@ -11,10 +11,19 @@ import es.tododev.sc2.process.Dto;
 
 public class XmlInput implements IInput<Dto> {
 
+	private final JAXBContext jc;
+	
+	public XmlInput(){
+		try {
+			jc = JAXBContext.newInstance(Dto.class);
+		} catch (JAXBException e) {
+			throw new ExceptionInInitializerError(e);
+		}
+	}
+	
 	@Override
 	public Dto toObject(String input) throws StreamCombinerException {
 		try {
-			JAXBContext jc = JAXBContext.newInstance(Dto.class);
 			Unmarshaller unmarsaller = jc.createUnmarshaller();
 			StringReader reader = new StringReader(input);
 			StreamSource stream = new StreamSource(reader);

@@ -34,20 +34,26 @@ public class StreamSocketManager {
 	private final Comparator<Long> comparatorCache = new CompareCache();
 	private final Set<Socket> openSockets = Collections.synchronizedSet(new HashSet<>());
 	public final static String SHUTDOWN_COMMAND = "SHUTDOWN";
-	private final IOutput output = new ConsoleJsonOutput();
+	private final IOutput output;
 	private final IInput<Dto> input = new XmlInput();
 	private final ExecutorService service;
 	
 	public StreamSocketManager(int nSockets, int port) {
+		this(nSockets, port, new ConsoleJsonOutput());
+	}
+	
+	public StreamSocketManager(int nSockets, int port, IOutput output) {
 		this.nSockets = nSockets;
 		this.port = port;
 		this.service = Executors.newFixedThreadPool(nSockets);
+		this.output = output;
 	}
 	
 	public void start() throws IOException {
 		boolean firstConnection = true;
 		try(ServerSocket serverSocket = new ServerSocket(port);
 			IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);){
+			System.out.println("Ready to receive connections");
 			/*
 			 * It will accept new connections the first time always. Additionally meanwhile there is active sockets.
 			 * This means that to stop it, you need to connect at least once and disconnect all the sockets.
@@ -62,8 +68,8 @@ public class StreamSocketManager {
 				}
 			}
 			service.shutdown();
-			
 		}
+		System.out.println("StreamSocketManager is closed");
 	}
 	
 	private void handleRequest(Socket socket, IStreamProcessor streamProcessor) {
