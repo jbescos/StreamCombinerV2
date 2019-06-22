@@ -2,6 +2,9 @@ package es.tododev.sc2.process;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement(name = "data")
 public class Dto {
 
 	public final static Dto LAST_TO_SEND = new Dto(Long.MAX_VALUE, new BigDecimal("0.0"));

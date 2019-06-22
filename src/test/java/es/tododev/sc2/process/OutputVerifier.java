@@ -8,6 +8,8 @@ import java.util.Optional;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import es.tododev.sc2.common.IOutput;
+
 
 
 public class OutputVerifier implements IOutput {

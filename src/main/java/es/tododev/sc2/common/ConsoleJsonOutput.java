@@ -1,4 +1,4 @@
-package es.tododev.sc2.process;
+package es.tododev.sc2.common;
 
 import java.util.HashMap;
 import java.util.List;
@@ -7,7 +7,7 @@ import java.util.Map;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import es.tododev.sc2.common.ErrorCodes;
+import es.tododev.sc2.process.Dto;
 
 public class ConsoleJsonOutput implements IOutput {
 
@@ -21,7 +21,7 @@ public class ConsoleJsonOutput implements IOutput {
 				String json = toJson(transaction);
 				builder.append("\n").append(json);
 			} catch (JsonProcessingException e) {
-				builder.append("\n").append(ErrorCodes.DESERIALIZE.getCode() + ": " + ErrorCodes.DESERIALIZE.getMessage() + ". " + transaction);
+				builder.append("\n").append(ErrorCodes.DESERIALIZE_OUTPUT.getCode() + ": " + ErrorCodes.DESERIALIZE_OUTPUT.getMessage() + ". " + transaction);
 			}
 		}
 		System.out.println(builder.toString());

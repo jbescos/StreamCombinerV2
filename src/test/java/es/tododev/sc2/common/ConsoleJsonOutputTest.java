@@ -1,4 +1,4 @@
-package es.tododev.sc2.process;
+package es.tododev.sc2.common;
 
 import java.math.BigDecimal;
 
@@ -7,6 +7,9 @@ import org.junit.Test;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import static org.junit.Assert.assertEquals;
+
+import es.tododev.sc2.common.ConsoleJsonOutput;
+import es.tododev.sc2.process.Dto;
 
 public class ConsoleJsonOutputTest {
 

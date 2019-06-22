@@ -4,7 +4,8 @@ public enum ErrorCodes {
 
 	OBSOLETE("ERROR-001", "The new timestamp is older than last one"),
 	CLOSED("ERROR-002", "This client has been closed"),
-	DESERIALIZE("ERROR-003", "Error deserializing output");
+	DESERIALIZE_OUTPUT("ERROR-003", "Error deserializing output"),
+	DESERIALIZE_INPUT("ERROR-004", "Error serializing input");
 	
 	private final String message;
 	private final String code;
