@@ -7,6 +7,8 @@ import java.util.Map;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import es.tododev.sc2.common.ErrorCodes;
+
 public class ConsoleJsonOutput implements IOutput {
 
 	private final ObjectMapper mapper = new ObjectMapper();
@@ -19,7 +21,7 @@ public class ConsoleJsonOutput implements IOutput {
 				String json = toJson(transaction);
 				builder.append("\n").append(json);
 			} catch (JsonProcessingException e) {
-				builder.append("\n").append("ERROR processing " + transaction);
+				builder.append("\n").append(ErrorCodes.DESERIALIZE.getCode() + ": " + ErrorCodes.DESERIALIZE.getMessage() + ". " + transaction);
 			}
 		}
 		System.out.println(builder.toString());

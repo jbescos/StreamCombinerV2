@@ -134,6 +134,25 @@ public class StreamProcessorTest {
 		output.verify(Integer.toString(totalAmount.get())+".0");
 	}
 	
+	@Test
+	public void connectAndDisconnectOnDifferentMoments() throws StreamCombinerException {
+		OutputVerifier output = new OutputVerifier();
+		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
+			try(IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache)){
+				clientInfo1.add(createDto(1, "1.0"));
+				clientInfo1.add(createDto(2, "2.0"));
+				clientInfo1.add(createDto(3, "3.0"));
+				output.verify(Integer.toString(1)+".0");
+				try(IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache)){
+					clientInfo2.add(createDto(2, "2.0"));
+				}
+				clientInfo1.add(createDto(3, "3.0"));
+				clientInfo1.add(createDto(4, "1.0"));
+			}
+		}
+		output.verify(Integer.toString(12)+".0");
+	}
+	
 	private Dto createDto(long timestamp, String amount) {
 		return new Dto(timestamp, new BigDecimal(amount));
 	}
