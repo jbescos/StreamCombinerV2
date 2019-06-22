@@ -44,7 +44,9 @@ public class StreamProcessor implements IStreamProcessor {
 			addTransaction(dto, clientInfo);
 		}
 		List<Dto> dtos = getTransactionsToProcess();
-		output.process(dtos);
+		if(!dtos.isEmpty()) {
+			output.process(dtos);
+		}
 		if(kickPolicy.isKickRequired(transactions)) {
 			kick(clientToKick());
 		}

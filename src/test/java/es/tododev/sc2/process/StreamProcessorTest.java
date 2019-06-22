@@ -2,9 +2,11 @@ package es.tododev.sc2.process;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 
@@ -114,6 +116,24 @@ public class StreamProcessorTest {
 		output.verify(Integer.toString(totalAmount)+".0");
 	}
 	
+	@Test
+	public void concurrentRandom() throws InterruptedException {
+		int clientsLimit = 20;
+		ExecutorService es = Executors.newFixedThreadPool(clientsLimit);
+		OutputVerifier output = new OutputVerifier();
+		CountDownLatch waitTillAllPrepared = new CountDownLatch(1);
+		CountDownLatch waitExecution = new CountDownLatch(clientsLimit);
+		AtomicInteger totalAmount = new AtomicInteger(0);
+		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
+			for(int i=0;i<clientsLimit;i++) {
+				es.execute(new ClientThread(streamProcessor, waitTillAllPrepared, waitExecution, totalAmount));
+			}
+			waitTillAllPrepared.countDown();
+			waitExecution.await();
+		}
+		output.verify(Integer.toString(totalAmount.get())+".0");
+	}
+	
 	private Dto createDto(long timestamp, String amount) {
 		return new Dto(timestamp, new BigDecimal(amount));
 	}
@@ -121,6 +141,49 @@ public class StreamProcessorTest {
 	private int getRandomNumberInRange(int min, int max) {
 		Random r = new Random();
 		return r.nextInt((max - min) + 1) + min;
+	}
+	
+	private class ClientThread implements Runnable {
+
+		private final IClientInfo clients;
+		private final CountDownLatch waitTillAllPrepared;
+		private final CountDownLatch waitExecution;
+		private final AtomicInteger totalAmount;
+		private final int iterations = 1000;
+		
+		public ClientThread(IStreamProcessor streamProcessor, CountDownLatch waitTillAllPrepared, CountDownLatch waitExecution, AtomicInteger totalAmount) {
+			this.clients = new ClientInfo(streamProcessor, comparatorCache);
+			this.waitTillAllPrepared = waitTillAllPrepared;
+			this.waitExecution = waitExecution;
+			this.totalAmount = totalAmount;
+		}
+
+		@Override
+		public void run() {
+			long timestamp = 0;
+			try {
+				waitTillAllPrepared.await();
+				for(int i=0; i<iterations;i++) {
+					boolean increaseTimeStamp = getRandomNumberInRange(0, 1) == 0;
+					if(increaseTimeStamp) {
+						timestamp++;
+					}
+					int randomAmount = getRandomNumberInRange(0, 100);
+					totalAmount.addAndGet(randomAmount);
+					Dto dto = createDto(timestamp, Integer.toString(randomAmount));
+					clients.add(dto);
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			} catch (StreamCombinerException e) {
+				e.printStackTrace();
+			} finally {
+				clients.close();
+				waitExecution.countDown();
+			}
+			
+		}
+		
 	}
 
 	

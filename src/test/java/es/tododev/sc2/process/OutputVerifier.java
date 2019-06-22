@@ -17,6 +17,7 @@ public class OutputVerifier implements IOutput {
 	@Override
 	public void process(List<Dto> transactions) {
 		total.addAll(transactions);
+		System.out.println("Output "+transactions);
 	}
 	
 	public void verify(String expectedAmount) {
