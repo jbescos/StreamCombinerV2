@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 public class Dto {
 
 	public final static Dto LAST_TO_SEND = new Dto(Long.MAX_VALUE, new BigDecimal("0.0"));
+	public final static Dto FIRST_TO_SEND = new Dto(0, new BigDecimal("0.0"));
 	private long timestamp;
 	private BigDecimal amount;
 	
@@ -32,7 +33,7 @@ public class Dto {
 
 	@Override
 	public String toString() {
-		return "Dto [timestamp=" + timestamp + ", amount=" + amount + "]";
+		return "<timestamp=" + timestamp + ", amount=" + amount + ">";
 	}
 	
 	

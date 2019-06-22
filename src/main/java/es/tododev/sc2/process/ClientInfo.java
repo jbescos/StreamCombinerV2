@@ -11,11 +11,13 @@ public class ClientInfo implements IClientInfo {
 
 	private final Comparator<Long> comparatorCache;
 	private final IStreamProcessor streamProcessor;
+	// Keeps the value till a higher timestamp is coming
 	private Dto last;
 	
 	public ClientInfo(IStreamProcessor streamProcessor, Comparator<Long> comparatorCache) {
 		this.streamProcessor = streamProcessor;
 		this.comparatorCache = comparatorCache;
+		this.streamProcessor.push(Dto.FIRST_TO_SEND, this);
 	}
 	
 	/**
@@ -53,5 +55,12 @@ public class ClientInfo implements IClientInfo {
 			// Cannot happen
 		}
 	}
+
+	@Override
+	public String toString() {
+		return "Client: "+super.toString().split("@")[1];
+	}
+	
+	
 	
 }

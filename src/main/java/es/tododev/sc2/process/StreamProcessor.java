@@ -14,6 +14,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
+import es.tododev.sc2.common.StreamCombinerException;
+
 public class StreamProcessor implements IStreamProcessor {
 	
 	private final Map<IClientInfo, Thread> activeClients = new HashMap<>();
@@ -36,37 +38,45 @@ public class StreamProcessor implements IStreamProcessor {
 	public synchronized void push(Dto dto, IClientInfo clientInfo) {
 		if(dto == Dto.LAST_TO_SEND) {
 			activeClients.remove(clientInfo);
+		} else if (dto == Dto.FIRST_TO_SEND){
+			activeClients.put(clientInfo, Thread.currentThread());
 		} else {
-			if (!activeClients.containsKey(clientInfo)) {
-				activeClients.put(clientInfo, Thread.currentThread());
-			}
 			addTransaction(dto, clientInfo);
 		}
 		List<Dto> dtos = getTransactionsToProcess();
 		output.process(dtos);
-		
 		if(kickPolicy.isKickRequired(transactions)) {
-			kick(clientToKick().iterator().next());
+			kick(clientToKick());
 		}
+		System.out.println("Pending: "+transactions);
+	}
+	
+	private Map<IClientInfo,Integer> createCounterMap(){
+		Map<IClientInfo,Integer> totalCounts = new HashMap<>();
+		for(IClientInfo client : activeClients.keySet()) {
+			totalCounts.put(client, 0);
+		}
+		return totalCounts;
 	}
 	
 	private List<Dto> getTransactionsToProcess() {
 		List<Dto> transactionsToProcess = new LinkedList<>();
 		boolean startProcessing = false;
-		Map<IClientInfo,Integer> totalCounts = new HashMap<>();
+		Map<IClientInfo,Integer> totalCounts = createCounterMap();
 		Set<IClientInfo> activeClientsSet = activeClients.keySet();
 		for(List<Entry<Dto, IClientInfo>> clientInfos : new ArrayList<>(transactions.descendingMap().values())) {
 			if(!startProcessing) {
 				// Find if it is possible to send to output
 				for(Entry<Dto, IClientInfo> info : clientInfos) {
+					int count = 0;
 					if(activeClientsSet.contains(info.getValue())) {
-						Integer count = totalCounts.get(info.getValue());
-						if(count == null) {
-							count = 0;
-						}
+						count = totalCounts.get(info.getValue());
 						count++;
-						totalCounts.put(info.getValue(), count);
+					} else {
+						// Client is gone but still have pending transactions.
+						count = 2;
 					}
+					totalCounts.put(info.getValue(), count);
 					startProcessing = isAllClientMoreThanOne(totalCounts);
 					if(startProcessing) {
 						moveToTransactionsToProcess(transactionsToProcess, clientInfos);
@@ -115,21 +125,23 @@ public class StreamProcessor implements IStreamProcessor {
 	}
 	
 	
-	private Set<IClientInfo> clientToKick() {
+	private IClientInfo clientToKick() {
 		Set<IClientInfo> clients = new HashSet<>(activeClients.keySet());
 		for(List<Entry<Dto, IClientInfo>> clientInfos : transactions.descendingMap().values()) {
 			for(Entry<Dto, IClientInfo> info : clientInfos) {
 				clients.remove(info.getValue());
 				if(clients.size() == 1) {
-					return clients;
+					return clients.iterator().next();
 				}
 			}
 		}
-		return clients;
+		return null;
 	}
 	
 	private void kick(IClientInfo client) {
-		activeClients.get(client).interrupt();
+		if(client != null) {
+			activeClients.get(client).interrupt();
+		}
 	}
 
 	@Override
