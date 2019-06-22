@@ -21,15 +21,16 @@ public class OutputList implements IOutput {
 	
 	public void verify(String expectedAmount) {
 		for(int i=0;i<total.size()-1;i++) {
-			BigDecimal current = total.get(i).getAmount();
-			BigDecimal next = total.get(i+1).getAmount();
-			int compare = next.compareTo(current);
-			assertTrue(total.toString(), compare == 1);
+			Long current = total.get(i).getTimestamp();
+			Long next = total.get(i+1).getTimestamp();
+			int compare = current.compareTo(next);
+			assertEquals(total.toString(), -1, compare);
 		}
-		Optional<BigDecimal> totalAmount = total.stream().map(dto -> dto.getAmount()).reduce((amount1, amount2) -> amount1.add(amount2));
-		if(totalAmount.isPresent()) {
-			assertEquals(total.toString(), new BigDecimal(expectedAmount), totalAmount.get());
+		BigDecimal totalAmount = new BigDecimal("0.0");
+		for(Dto dto : total) {
+			totalAmount = totalAmount.add(dto.getAmount());
 		}
+		assertEquals(total.toString(), new BigDecimal(expectedAmount), totalAmount);
 	}
 
 }

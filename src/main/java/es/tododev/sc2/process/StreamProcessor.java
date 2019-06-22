@@ -5,16 +5,18 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
 public class StreamProcessor implements IStreamProcessor {
 	
-	private final Set<IClientInfo> activeClients = new HashSet<>();
+	private final Map<IClientInfo, Thread> activeClients = new HashMap<>();
 	private final TreeMap<Long, List<Entry<Dto, IClientInfo>>> transactions;
 	private final IKickPolicy kickPolicy;
 	private final IOutput output;
@@ -34,50 +36,73 @@ public class StreamProcessor implements IStreamProcessor {
 	public synchronized void push(Dto dto, IClientInfo clientInfo) {
 		if(dto == Dto.LAST_TO_SEND) {
 			activeClients.remove(clientInfo);
-		} else if (dto == Dto.FIRST_TO_SEND) {
-			activeClients.add(clientInfo);
 		} else {
+			if (!activeClients.containsKey(clientInfo)) {
+				activeClients.put(clientInfo, Thread.currentThread());
+			}
 			addTransaction(dto, clientInfo);
 		}
 		List<Dto> dtos = getTransactionsToProcess();
 		output.process(dtos);
 		
 		if(kickPolicy.isKickRequired(transactions)) {
-			kick();
+			kick(clientToKick().iterator().next());
 		}
 	}
 	
 	private List<Dto> getTransactionsToProcess() {
 		List<Dto> transactionsToProcess = new LinkedList<>();
 		boolean startProcessing = false;
-		Set<IClientInfo> processedClients = new HashSet<>();
-		for(List<Entry<Dto, IClientInfo>> clientInfos : transactions.descendingMap().values()) {
+		Map<IClientInfo,Integer> totalCounts = new HashMap<>();
+		Set<IClientInfo> activeClientsSet = activeClients.keySet();
+		for(List<Entry<Dto, IClientInfo>> clientInfos : new ArrayList<>(transactions.descendingMap().values())) {
 			if(!startProcessing) {
+				// Find if it is possible to send to output
 				for(Entry<Dto, IClientInfo> info : clientInfos) {
-					if(activeClients.contains(info.getValue())) {
-						if(processedClients.contains(info.getValue())) {
-							startProcessing = true;
-						} else {
-							processedClients.add(info.getValue());
+					if(activeClientsSet.contains(info.getValue())) {
+						Integer count = totalCounts.get(info.getValue());
+						if(count == null) {
+							count = 0;
 						}
+						count++;
+						totalCounts.put(info.getValue(), count);
+					}
+					startProcessing = isAllClientMoreThanOne(totalCounts);
+					if(startProcessing) {
+						moveToTransactionsToProcess(transactionsToProcess, clientInfos);
 					}
 				}
 			} else {
-				Dto combined = null;
-				for(Entry<Dto, IClientInfo> info : clientInfos) {
-					if(combined == null) {
-						combined = info.getKey();
-					} else {
-						BigDecimal combinedAmount = info.getKey().getAmount().add(combined.getAmount());
-						combined.setAmount(combinedAmount);
-					}
-				}
-				transactions.remove(combined.getTimestamp());
-				transactionsToProcess.add(combined);
+				// Prepares the output 
+				moveToTransactionsToProcess(transactionsToProcess, clientInfos);
 			}
 		}
 		Collections.reverse(transactionsToProcess);
 		return transactionsToProcess;
+	}
+	
+	private void moveToTransactionsToProcess(List<Dto> transactionsToProcess, List<Entry<Dto, IClientInfo>> clientInfos) {
+		// Prepares the output 
+		Dto combined = null;
+		for(Entry<Dto, IClientInfo> info : clientInfos) {
+			if(combined == null) {
+				combined = info.getKey();
+			} else {
+				BigDecimal combinedAmount = info.getKey().getAmount().add(combined.getAmount());
+				combined.setAmount(combinedAmount);
+			}
+		}
+		transactions.remove(combined.getTimestamp());
+		transactionsToProcess.add(combined);
+	}
+	
+	private boolean isAllClientMoreThanOne(Map<IClientInfo,Integer> totalCounts) {
+		for(Integer count : totalCounts.values()) {
+			if(count < 2) {
+				return false;
+			}
+		}
+		return true;
 	}
 	
 	private void addTransaction(Dto dto, IClientInfo clientInfo) {
@@ -91,7 +116,7 @@ public class StreamProcessor implements IStreamProcessor {
 	
 	
 	private Set<IClientInfo> clientToKick() {
-		Set<IClientInfo> clients = new HashSet<>(activeClients);
+		Set<IClientInfo> clients = new HashSet<>(activeClients.keySet());
 		for(List<Entry<Dto, IClientInfo>> clientInfos : transactions.descendingMap().values()) {
 			for(Entry<Dto, IClientInfo> info : clientInfos) {
 				clients.remove(info.getValue());
@@ -103,16 +128,15 @@ public class StreamProcessor implements IStreamProcessor {
 		return clients;
 	}
 	
-	/**
-	 * Kicks the client who pushed the last
-	 */
-	private void kick() {
-		clientToKick().iterator().next().close();
+	private void kick(IClientInfo client) {
+		activeClients.get(client).interrupt();
 	}
 
 	@Override
 	public void close() {
-		new ArrayList<IClientInfo>(activeClients).stream().forEach(client -> client.close());
+		for(IClientInfo client : new HashSet<>(activeClients.keySet())) {
+			kick(client);
+		}
 	}
 	
 

@@ -2,6 +2,7 @@ package es.tododev.sc2.process;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import es.tododev.sc2.common.ErrorCodes;
 import es.tododev.sc2.common.StreamCombinerException;
@@ -17,12 +18,15 @@ public class ClientInfo implements IClientInfo {
 		this.comparatorCache = comparatorCache;
 	}
 	
+	/**
+	 * Could be invoked by other threads (for example KickPolicy)
+	 */
 	@Override
-	public synchronized void add(Dto dto) throws StreamCombinerException {
+	public void add(Dto dto) throws StreamCombinerException {
 		if(last == Dto.LAST_TO_SEND) {
 			// Avoids to process more if it has been closed
 			throw new StreamCombinerException(ErrorCodes.CLOSED);
-		}else {
+		} else {
 			if(last != null) {
 				int compareResult = comparatorCache.compare(last.getTimestamp(), dto.getTimestamp());
 				if(compareResult == 0) {
@@ -34,7 +38,6 @@ public class ClientInfo implements IClientInfo {
 					throw new StreamCombinerException(ErrorCodes.OBSOLETE);
 				}
 			}
-			
 			if(dto == Dto.LAST_TO_SEND) {
 				streamProcessor.push(Dto.LAST_TO_SEND, this);
 			}
@@ -42,21 +45,13 @@ public class ClientInfo implements IClientInfo {
 		}
 	}
 
-	/**
-	 * Could be invoked by other threads (for example KickPolicy)
-	 */
 	@Override
-	public synchronized void close() {
+	public void close() {
 		try {
 			add(Dto.LAST_TO_SEND);
 		} catch (StreamCombinerException e) {
 			// Cannot happen
 		}
-	}
-
-	@Override
-	public void start() {
-		streamProcessor.push(Dto.FIRST_TO_SEND, this);
 	}
 	
 }

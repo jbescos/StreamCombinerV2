@@ -16,20 +16,20 @@ public class StreamProcessorTest {
 	public void inSequence() throws StreamCombinerException {
 		OutputList output = new OutputList();
 		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
-			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
-			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
-			clientInfo1.start();
-			clientInfo2.start();
-			clientInfo1.add(createDto(1, "10"));
-			output.verify("0");
-			clientInfo2.add(createDto(20, "5"));
-			output.verify("0");
-			clientInfo2.add(createDto(21, "1"));
-			output.verify("0");
-			clientInfo1.add(createDto(23, "10"));
-			output.verify("15");
+			try(
+				IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
+				IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+			){
+				clientInfo1.add(createDto(1, "10.0"));
+				clientInfo2.add(createDto(20, "5.0"));
+				clientInfo2.add(createDto(21, "1.0"));
+				clientInfo1.add(createDto(23, "10.0"));
+				clientInfo2.add(createDto(25, "2.0"));
+				clientInfo1.add(createDto(27, "80.0"));
+				output.verify("15.0");
+			}
 		}
-		output.verify("26");
+		output.verify("108.0");
 	}
 	
 	private Dto createDto(long timestamp, String amount) {
