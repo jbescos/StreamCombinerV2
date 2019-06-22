@@ -34,31 +34,33 @@ public class ClientInfoTest {
 	public void nullDto() throws StreamCombinerException {
 		IClientInfo clientInfo = new ClientInfo(streamProcessor, comparatorCache);
 		clientInfo.add(null);
-		Mockito.verify(streamProcessor, Mockito.never()).push(Matchers.any(Dto.class), Matchers.eq(clientInfo));
+		Mockito.verify(streamProcessor, Mockito.never()).push(Matchers.eq(null), Matchers.eq(clientInfo));
 	}
 	
 	@Test(expected = StreamCombinerException.class)
 	public void obsolete() throws StreamCombinerException {
 		IClientInfo clientInfo = new ClientInfo(streamProcessor, comparatorCache);
-		clientInfo.add(new Dto(1, new BigDecimal(1)));
-		Mockito.verify(streamProcessor, Mockito.never()).push(Matchers.any(Dto.class), Matchers.eq(clientInfo));
+		Dto dto1 = new Dto(1, new BigDecimal(1));
+		clientInfo.add(dto1);
+		Mockito.verify(streamProcessor, Mockito.never()).push(Matchers.eq(dto1), Matchers.eq(clientInfo));
 		clientInfo.add(new Dto(0, new BigDecimal(1)));
 	}
 	
 	@Test
 	public void fullExample() throws StreamCombinerException {
 		IClientInfo clientInfo = new ClientInfo(streamProcessor, comparatorCache);
-		clientInfo.add(new Dto(1, new BigDecimal(1)));
-		Mockito.verify(streamProcessor, Mockito.never()).push(Matchers.any(Dto.class), Matchers.eq(clientInfo));
-		Dto dto = new Dto(1, new BigDecimal(1));
-		clientInfo.add(dto);
-		Mockito.verify(streamProcessor, Mockito.never()).push(Matchers.any(Dto.class), Matchers.eq(clientInfo));
-		Dto dto2 = new Dto(2, new BigDecimal(1));
+		Dto dto1 = new Dto(1, new BigDecimal(1));
+		clientInfo.add(dto1);
+		Mockito.verify(streamProcessor, Mockito.never()).push(Matchers.eq(dto1), Matchers.eq(clientInfo));
+		Dto dto2 = new Dto(1, new BigDecimal(1));
 		clientInfo.add(dto2);
-		Mockito.verify(streamProcessor, Mockito.times(1)).push(Matchers.eq(dto), Matchers.eq(clientInfo));
-		assertEquals(2, dto.getAmount().intValue());
-		clientInfo.add(Dto.LAST_TO_SEND);
+		Mockito.verify(streamProcessor, Mockito.never()).push(Matchers.eq(dto2), Matchers.eq(clientInfo));
+		Dto dto3 = new Dto(2, new BigDecimal(1));
+		clientInfo.add(dto3);
 		Mockito.verify(streamProcessor, Mockito.times(1)).push(Matchers.eq(dto2), Matchers.eq(clientInfo));
+		assertEquals(2, dto2.getAmount().intValue());
+		clientInfo.add(Dto.LAST_TO_SEND);
+		Mockito.verify(streamProcessor, Mockito.times(1)).push(Matchers.eq(dto3), Matchers.eq(clientInfo));
 		Mockito.verify(streamProcessor, Mockito.times(1)).push(Matchers.eq(Dto.LAST_TO_SEND), Matchers.eq(clientInfo));
 	}
 	
