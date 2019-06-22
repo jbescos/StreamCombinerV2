@@ -118,7 +118,7 @@ public class StreamProcessorTest {
 	
 	@Test
 	public void concurrentRandom() throws InterruptedException {
-		int clientsLimit = 20;
+		int clientsLimit = 100;
 		ExecutorService es = Executors.newFixedThreadPool(clientsLimit);
 		OutputVerifier output = new OutputVerifier();
 		CountDownLatch waitTillAllPrepared = new CountDownLatch(1);
@@ -149,7 +149,7 @@ public class StreamProcessorTest {
 		private final CountDownLatch waitTillAllPrepared;
 		private final CountDownLatch waitExecution;
 		private final AtomicInteger totalAmount;
-		private final int iterations = 1000;
+		private final int iterations = 10000;
 		
 		public ClientThread(IStreamProcessor streamProcessor, CountDownLatch waitTillAllPrepared, CountDownLatch waitExecution, AtomicInteger totalAmount) {
 			this.clients = new ClientInfo(streamProcessor, comparatorCache);
@@ -160,14 +160,12 @@ public class StreamProcessorTest {
 
 		@Override
 		public void run() {
-			long timestamp = 0;
+			// +1 or -1 second to emulate different computers time stamp
+			int randomDelay = getRandomNumberInRange(-1000, 1000);
 			try {
 				waitTillAllPrepared.await();
 				for(int i=0; i<iterations;i++) {
-					boolean increaseTimeStamp = getRandomNumberInRange(0, 1) == 0;
-					if(increaseTimeStamp) {
-						timestamp++;
-					}
+					long timestamp = System.currentTimeMillis() + randomDelay;
 					int randomAmount = getRandomNumberInRange(0, 100);
 					totalAmount.addAndGet(randomAmount);
 					Dto dto = createDto(timestamp, Integer.toString(randomAmount));
