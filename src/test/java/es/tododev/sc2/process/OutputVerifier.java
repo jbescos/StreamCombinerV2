@@ -16,9 +16,6 @@ public class OutputVerifier implements IOutput {
 
 	@Override
 	public void process(List<Dto> transactions) {
-		if(!transactions.isEmpty()) {
-			System.out.println("Stream out "+transactions);
-		}
 		total.addAll(transactions);
 	}
 	

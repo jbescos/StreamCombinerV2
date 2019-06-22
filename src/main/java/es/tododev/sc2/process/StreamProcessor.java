@@ -48,7 +48,6 @@ public class StreamProcessor implements IStreamProcessor {
 		if(kickPolicy.isKickRequired(transactions)) {
 			kick(clientToKick());
 		}
-		System.out.println("Pending: "+transactions);
 	}
 	
 	private Map<IClientInfo,Integer> createCounterMap(){
@@ -80,6 +79,7 @@ public class StreamProcessor implements IStreamProcessor {
 					startProcessing = isAllClientMoreThanOne(totalCounts);
 					if(startProcessing) {
 						moveToTransactionsToProcess(transactionsToProcess, clientInfos);
+						break;
 					}
 				}
 			} else {

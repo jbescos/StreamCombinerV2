@@ -61,9 +61,32 @@ public class StreamProcessorTest {
 	}
 	
 	@Test
+	public void bugRepeatedOutput() throws StreamCombinerException {
+		OutputVerifier output = new OutputVerifier();
+		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
+			try(
+				IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
+				IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+			){
+				clientInfo1.add(createDto(1, "15.0"));
+				clientInfo1.add(createDto(1, "63.0"));
+				clientInfo2.add(createDto(0, "13.0"));
+				clientInfo1.add(createDto(2, "28.0"));
+				clientInfo2.add(createDto(1, "58.0"));
+				clientInfo1.add(createDto(2, "50.0"));
+				clientInfo1.add(createDto(3, "71.0"));
+				clientInfo2.add(createDto(2, "15.0"));
+				clientInfo2.add(createDto(2, "18.0"));
+				clientInfo2.add(createDto(2, "10.0"));
+			}
+		}
+		output.verify("341.0");
+	}
+	
+	@Test
 	public void random() throws StreamCombinerException {
-		int interactions = 100;
-		int clientsLimit = 30;
+		int interactions = 10000;
+		int clientsLimit = 100;
 		IClientInfo clients[] = new IClientInfo[clientsLimit];
 		Long timestamps[] = new Long[clients.length];
 		OutputVerifier output = new OutputVerifier();
