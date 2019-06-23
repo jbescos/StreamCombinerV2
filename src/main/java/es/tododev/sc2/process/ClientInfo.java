@@ -37,7 +37,7 @@ public class ClientInfo implements IClientInfo {
 		}
 		if(dto == Dto.LAST_TO_SEND) {
 			streamProcessor.push(Dto.LAST_TO_SEND, this);
-			last = null;
+			last = Dto.FIRST_TO_SEND;
 		} else {
 			last = dto;
 		}

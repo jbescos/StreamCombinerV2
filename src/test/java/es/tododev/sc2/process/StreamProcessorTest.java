@@ -171,9 +171,12 @@ public class StreamProcessorTest {
 			output.verify(Integer.toString(12)+".0");
 			// But he can still send new data if the timestamp is valid
 			clientInfo2.add(createDto(8, "8.0"));
+			clientInfo1.add(createDto(9, "2.0"));
+			clientInfo2.add(createDto(8, "1.0"));
+			output.verify(Integer.toString(12)+".0");
 			
 		}
-		output.verify(Integer.toString(27)+".0");
+		output.verify(Integer.toString(30)+".0");
 		
 	}
 	
