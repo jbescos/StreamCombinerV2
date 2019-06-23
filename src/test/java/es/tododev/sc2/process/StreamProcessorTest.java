@@ -10,7 +10,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import es.tododev.sc2.common.CompareCache;
+import es.tododev.sc2.common.ErrorCodes;
 import es.tododev.sc2.common.StreamCombinerException;
 
 public class StreamProcessorTest {
@@ -145,6 +149,36 @@ public class StreamProcessorTest {
 			clientInfo1.add(createDto(4, "1.0"));
 		}
 		output.verify(Integer.toString(12)+".0");
+	}
+	
+	@Test
+	public void kick() throws StreamCombinerException, InterruptedException {
+		int kickLimitSize = 2;
+		OutputVerifier output = new OutputVerifier();
+		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, transactions -> transactions.size() == kickLimitSize, output);
+		try(
+				IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
+				IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+			){
+			clientInfo2.add(createDto(0, "10.0"));
+			clientInfo1.add(createDto(1, "2.0"));
+			assertEquals(0, streamProcessor.pendingTransactions());
+			clientInfo1.add(createDto(2, "3.0"));
+			assertEquals(1, streamProcessor.pendingTransactions());
+			clientInfo1.add(createDto(3, "4.0"));
+			// Kick process is running to kick clientInfo2
+			Thread.sleep(2000L);
+			output.verify(Integer.toString(12)+".0");
+			try {
+				clientInfo2.add(createDto(8, "999.0"));
+				fail("He should receive an exception");
+			}catch(StreamCombinerException e) {
+				assertEquals(ErrorCodes.CLOSED.getCode() + ": " + ErrorCodes.CLOSED.getMessage(), e.getMessage());
+			}
+			
+		}
+		output.verify(Integer.toString(19)+".0");
+		
 	}
 	
 	private Dto createDto(long timestamp, String amount) {

@@ -76,7 +76,7 @@ public class StreamSocketManager {
 				}
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
+			// ServerSocket is closed
 		}finally {
 			for(Socket socket : new ArrayList<>(openSockets)) {
 				closeSocket(socket);

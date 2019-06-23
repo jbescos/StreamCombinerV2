@@ -13,15 +13,21 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import es.tododev.sc2.common.IOutput;
 
 public class StreamProcessor implements IStreamProcessor {
 	
-	private final Map<IClientInfo, Thread> activeClients = new HashMap<>();
+	private final Set<IClientInfo> activeClients = new HashSet<>();
 	private final TreeMap<Long, List<Entry<Dto, IClientInfo>>> transactions;
 	private final IKickPolicy kickPolicy;
 	private final IOutput output;
+	private final Executor asyncTask = Executors.newSingleThreadExecutor();
+	// Flag to know is asyncTask wants to kick.
+	private AtomicBoolean kickIsRunning = new AtomicBoolean(false);
 	
 	public StreamProcessor(Comparator<Long> comparatorCache, IKickPolicy kickPolicy, IOutput output) {
 		this.kickPolicy = kickPolicy;
@@ -39,7 +45,7 @@ public class StreamProcessor implements IStreamProcessor {
 		if(dto == Dto.LAST_TO_SEND) {
 			activeClients.remove(clientInfo);
 		} else if (dto == Dto.FIRST_TO_SEND){
-			activeClients.put(clientInfo, Thread.currentThread());
+			activeClients.add(clientInfo);
 		} else {
 			addTransaction(dto, clientInfo);
 		}
@@ -47,14 +53,15 @@ public class StreamProcessor implements IStreamProcessor {
 		if(!dtos.isEmpty()) {
 			output.process(dtos);
 		}
-		if(kickPolicy.isKickRequired(transactions)) {
+		// add solution in case if some input streams hang.
+		if(!kickIsRunning.get() && kickPolicy.isKickRequired(transactions)) {
 			kick(clientToKick());
 		}
 	}
 	
 	private Map<IClientInfo,Integer> createCounterMap(){
 		Map<IClientInfo,Integer> totalCounts = new HashMap<>();
-		for(IClientInfo client : activeClients.keySet()) {
+		for(IClientInfo client : activeClients) {
 			totalCounts.put(client, 0);
 		}
 		return totalCounts;
@@ -64,13 +71,12 @@ public class StreamProcessor implements IStreamProcessor {
 		List<Dto> transactionsToProcess = new LinkedList<>();
 		boolean startProcessing = false;
 		Map<IClientInfo,Integer> totalCounts = createCounterMap();
-		Set<IClientInfo> activeClientsSet = activeClients.keySet();
 		for(List<Entry<Dto, IClientInfo>> clientInfos : new ArrayList<>(transactions.descendingMap().values())) {
 			if(!startProcessing) {
 				// Find if it is possible to send to output
 				for(Entry<Dto, IClientInfo> info : clientInfos) {
 					int count = 0;
-					if(activeClientsSet.contains(info.getValue())) {
+					if(activeClients.contains(info.getValue())) {
 						count = totalCounts.get(info.getValue());
 						count++;
 					} else {
@@ -128,7 +134,7 @@ public class StreamProcessor implements IStreamProcessor {
 	
 	
 	private IClientInfo clientToKick() {
-		Set<IClientInfo> clients = new HashSet<>(activeClients.keySet());
+		Set<IClientInfo> clients = new HashSet<>(activeClients);
 		for(List<Entry<Dto, IClientInfo>> clientInfos : transactions.descendingMap().values()) {
 			for(Entry<Dto, IClientInfo> info : clientInfos) {
 				clients.remove(info.getValue());
@@ -142,7 +148,12 @@ public class StreamProcessor implements IStreamProcessor {
 	
 	private void kick(IClientInfo client) {
 		if(client != null) {
-			activeClients.get(client).interrupt();
+			kickIsRunning.set(true);
+			// Avoid deadlocks
+			asyncTask.execute(() -> {
+				client.close();
+				kickIsRunning.set(false);
+			});
 		}
 	}
 

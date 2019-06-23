@@ -23,7 +23,7 @@ public class ClientInfo implements IClientInfo {
 	 * Could be invoked by other threads (for example KickPolicy)
 	 */
 	@Override
-	public void add(Dto dto) throws StreamCombinerException {
+	public synchronized void add(Dto dto) throws StreamCombinerException {
 		if(last == Dto.LAST_TO_SEND) {
 			// Avoids to process more if it has been closed
 			throw new StreamCombinerException(ErrorCodes.CLOSED);
