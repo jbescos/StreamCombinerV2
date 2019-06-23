@@ -169,15 +169,11 @@ public class StreamProcessorTest {
 			// Kick process is running to kick clientInfo2
 			Thread.sleep(2000L);
 			output.verify(Integer.toString(12)+".0");
-			try {
-				clientInfo2.add(createDto(8, "999.0"));
-				fail("He should receive an exception");
-			}catch(StreamCombinerException e) {
-				assertEquals(ErrorCodes.CLOSED.getCode() + ": " + ErrorCodes.CLOSED.getMessage(), e.getMessage());
-			}
+			// But he can still send new data if the timestamp is valid
+			clientInfo2.add(createDto(8, "8.0"));
 			
 		}
-		output.verify(Integer.toString(19)+".0");
+		output.verify(Integer.toString(27)+".0");
 		
 	}
 	

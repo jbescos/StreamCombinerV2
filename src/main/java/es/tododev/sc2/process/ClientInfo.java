@@ -24,24 +24,21 @@ public class ClientInfo implements IClientInfo {
 	 */
 	@Override
 	public synchronized void add(Dto dto) throws StreamCombinerException {
-		if(last == Dto.LAST_TO_SEND) {
-			// Avoids to process more if it has been closed
-			throw new StreamCombinerException(ErrorCodes.CLOSED);
+		if(last != null) {
+			int compareResult = comparatorCache.compare(last.getTimestamp(), dto.getTimestamp());
+			if(compareResult == 0) {
+				BigDecimal total = last.getAmount().add(dto.getAmount());
+				dto.setAmount(total);
+			} else if(compareResult < 0) {
+				streamProcessor.push(last, this);
+			} else {
+				throw new StreamCombinerException(ErrorCodes.OBSOLETE);
+			}
+		}
+		if(dto == Dto.LAST_TO_SEND) {
+			streamProcessor.push(Dto.LAST_TO_SEND, this);
+			last = null;
 		} else {
-			if(last != null) {
-				int compareResult = comparatorCache.compare(last.getTimestamp(), dto.getTimestamp());
-				if(compareResult == 0) {
-					BigDecimal total = last.getAmount().add(dto.getAmount());
-					dto.setAmount(total);
-				} else if(compareResult < 0) {
-					streamProcessor.push(last, this);
-				} else {
-					throw new StreamCombinerException(ErrorCodes.OBSOLETE);
-				}
-			}
-			if(dto == Dto.LAST_TO_SEND) {
-				streamProcessor.push(Dto.LAST_TO_SEND, this);
-			}
 			last = dto;
 		}
 	}
