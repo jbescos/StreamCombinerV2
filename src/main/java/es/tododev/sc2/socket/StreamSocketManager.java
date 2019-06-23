@@ -9,7 +9,6 @@ import java.net.Socket;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,6 +36,7 @@ public class StreamSocketManager {
 	private final IOutput output;
 	private final IInput<Dto> input = new XmlInput();
 	private final ExecutorService service;
+	private final AtomicBoolean running = new AtomicBoolean(true);
 	
 	public StreamSocketManager(int nSockets, int port) {
 		this(nSockets, port, new ConsoleJsonOutput());
@@ -50,16 +50,9 @@ public class StreamSocketManager {
 	}
 	
 	public void start() throws IOException {
-		boolean firstConnection = true;
 		try(ServerSocket serverSocket = new ServerSocket(port);
 			IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);){
-			System.out.println("Ready to receive connections");
-			/*
-			 * It will accept new connections the first time always. Additionally meanwhile there is active sockets.
-			 * This means that to stop it, you need to connect at least once and disconnect all the sockets.
-			 */
-			while(firstConnection || !openSockets.isEmpty()) {
-				firstConnection = false;
+			while(running.get()) {
 				if (openSockets.size() < nSockets) {
 					Socket socket = serverSocket.accept();
 					openSockets.add(socket);
@@ -69,7 +62,10 @@ public class StreamSocketManager {
 			}
 			service.shutdown();
 		}
-		System.out.println("StreamSocketManager is closed");
+	}
+	
+	private void stop() {
+		running.set(false);
 	}
 	
 	private void handleRequest(Socket socket, IStreamProcessor streamProcessor) {

@@ -2,6 +2,7 @@ package es.tododev.sc2.process.socket;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -37,7 +38,6 @@ public class StreamSocketManagerTest {
 		Long timestamps[] = new Long[sockets.length];
 		for(int i=0; i<sockets.length; i++) {
 			sockets[i] = new Socket(InetAddress.getLocalHost(), PORT);
-			waitTillServerSocketIsReady(sockets[i]);
 			timestamps[i] = 0L;
 		}
 		for(int i=0;i<interactions;i++) {
@@ -55,7 +55,9 @@ public class StreamSocketManagerTest {
 		for(int i=0; i<sockets.length; i++) {
 			sockets[i].close();
 		}
+		Thread.sleep(2000L);
 		output.verify(Integer.toString(totalAmount)+".0");
+		
 	}
 	
 	private int getRandomNumberInRange(int min, int max) {
@@ -64,19 +66,14 @@ public class StreamSocketManagerTest {
 	}
 	
 	private void writeInSocket(Socket socket, String message) throws IOException {
-		try(ObjectOutputStream  oos = new ObjectOutputStream(socket.getOutputStream());){
-			oos.writeObject(message);
-		}
-		
+		PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+		writer.write(message+"\n");
+		writer.flush();
 	}
 	
 	private String generateXml(long timestamp, String amount) {
-		return "<data> <timestamp>"+timestamp+"</timeStamp> <amount>"+amount+".0</amount> </data>\n";
-	}
-	
-	private void waitTillServerSocketIsReady(Socket socket) {
-		while(socket.isClosed()) {
-		}
+		String xml = "<data> <timestamp>"+timestamp+"</timestamp> <amount>"+amount+".0</amount> </data>";
+		return xml;
 	}
 
 }

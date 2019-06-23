@@ -2,11 +2,10 @@ package es.tododev.sc2.process;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import es.tododev.sc2.common.IOutput;
 
@@ -14,7 +13,7 @@ import es.tododev.sc2.common.IOutput;
 
 public class OutputVerifier implements IOutput {
 	
-	private final List<Dto> total = new ArrayList<>();
+	private final List<Dto> total = Collections.synchronizedList(new ArrayList<>());
 
 	@Override
 	public void process(List<Dto> transactions) {
