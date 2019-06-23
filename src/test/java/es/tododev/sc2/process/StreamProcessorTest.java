@@ -34,10 +34,10 @@ public class StreamProcessorTest {
 			clientInfo2.add(createDto(21, "1.0"));
 			clientInfo1.add(createDto(23, "10.0"));
 			clientInfo2.add(createDto(25, "2.0"));
-			clientInfo1.add(createDto(27, "80.0"));
+			clientInfo1.add(createDto(27, "-80.0"));
 			output.verify("10.0");
 		}
-		output.verify("108.0");
+		output.verify("-52.0");
 	}
 	
 	@Test
