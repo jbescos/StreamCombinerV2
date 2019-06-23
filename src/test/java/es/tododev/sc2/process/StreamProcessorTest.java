@@ -20,19 +20,18 @@ public class StreamProcessorTest {
 	@Test
 	public void inSequence() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
-			try(
-				IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
-				IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
-			){
-				clientInfo1.add(createDto(1, "10.0"));
-				clientInfo2.add(createDto(20, "5.0"));
-				clientInfo2.add(createDto(21, "1.0"));
-				clientInfo1.add(createDto(23, "10.0"));
-				clientInfo2.add(createDto(25, "2.0"));
-				clientInfo1.add(createDto(27, "80.0"));
-				output.verify("10.0");
-			}
+		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+		try(
+			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
+			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+		){
+			clientInfo1.add(createDto(1, "10.0"));
+			clientInfo2.add(createDto(20, "5.0"));
+			clientInfo2.add(createDto(21, "1.0"));
+			clientInfo1.add(createDto(23, "10.0"));
+			clientInfo2.add(createDto(25, "2.0"));
+			clientInfo1.add(createDto(27, "80.0"));
+			output.verify("10.0");
 		}
 		output.verify("108.0");
 	}
@@ -40,24 +39,23 @@ public class StreamProcessorTest {
 	@Test
 	public void repeatingTimestamps() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
-			try(
-				IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
-				IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
-			){
-				clientInfo1.add(createDto(1, "10.0"));
-				clientInfo1.add(createDto(1, "20.0"));
-				clientInfo1.add(createDto(1, "30.0"));
-				clientInfo1.add(createDto(1, "10.0"));
-				clientInfo1.add(createDto(2, "10.0"));
-				clientInfo2.add(createDto(1, "5.0"));
-				clientInfo2.add(createDto(1, "1.0"));
-				clientInfo2.add(createDto(25, "2.0"));
-				clientInfo1.add(createDto(27, "80.0"));
-				clientInfo2.add(createDto(26, "2.0"));
-				clientInfo1.add(createDto(28, "80.2656"));
-				output.verify("76.0");
-			}
+		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+		try(
+			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
+			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+		){
+			clientInfo1.add(createDto(1, "10.0"));
+			clientInfo1.add(createDto(1, "20.0"));
+			clientInfo1.add(createDto(1, "30.0"));
+			clientInfo1.add(createDto(1, "10.0"));
+			clientInfo1.add(createDto(2, "10.0"));
+			clientInfo2.add(createDto(1, "5.0"));
+			clientInfo2.add(createDto(1, "1.0"));
+			clientInfo2.add(createDto(25, "2.0"));
+			clientInfo1.add(createDto(27, "80.0"));
+			clientInfo2.add(createDto(26, "2.0"));
+			clientInfo1.add(createDto(28, "80.2656"));
+			output.verify("76.0");
 		}
 		output.verify("250.2656");
 	}
@@ -65,22 +63,21 @@ public class StreamProcessorTest {
 	@Test
 	public void bugRepeatedOutput() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
-			try(
-				IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
-				IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
-			){
-				clientInfo1.add(createDto(1, "15.0"));
-				clientInfo1.add(createDto(1, "63.0"));
-				clientInfo2.add(createDto(0, "13.0"));
-				clientInfo1.add(createDto(2, "28.0"));
-				clientInfo2.add(createDto(1, "58.0"));
-				clientInfo1.add(createDto(2, "50.0"));
-				clientInfo1.add(createDto(3, "71.0"));
-				clientInfo2.add(createDto(2, "15.0"));
-				clientInfo2.add(createDto(2, "18.0"));
-				clientInfo2.add(createDto(2, "10.0"));
-			}
+		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+		try(
+			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
+			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+		){
+			clientInfo1.add(createDto(1, "15.0"));
+			clientInfo1.add(createDto(1, "63.0"));
+			clientInfo2.add(createDto(0, "13.0"));
+			clientInfo1.add(createDto(2, "28.0"));
+			clientInfo2.add(createDto(1, "58.0"));
+			clientInfo1.add(createDto(2, "50.0"));
+			clientInfo1.add(createDto(3, "71.0"));
+			clientInfo2.add(createDto(2, "15.0"));
+			clientInfo2.add(createDto(2, "18.0"));
+			clientInfo2.add(createDto(2, "10.0"));
 		}
 		output.verify("341.0");
 	}
@@ -93,25 +90,24 @@ public class StreamProcessorTest {
 		Long timestamps[] = new Long[clients.length];
 		OutputVerifier output = new OutputVerifier();
 		int totalAmount = 0;
-		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
-			for(int i=0;i<clients.length;i++) {
-				clients[i] = new ClientInfo(streamProcessor, comparatorCache);
-				timestamps[i] = 0L;
+		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+		for(int i=0;i<clients.length;i++) {
+			clients[i] = new ClientInfo(streamProcessor, comparatorCache);
+			timestamps[i] = 0L;
+		}
+		for(int i=0;i<interactions;i++) {
+			int randomIndex = getRandomNumberInRange(0, clients.length - 1);
+			IClientInfo randomClient = clients[randomIndex];
+			boolean increaseTimeStamp = getRandomNumberInRange(0, 1) == 0;
+			if(increaseTimeStamp) {
+				timestamps[randomIndex] = timestamps[randomIndex] + 1;
 			}
-			for(int i=0;i<interactions;i++) {
-				int randomIndex = getRandomNumberInRange(0, clients.length - 1);
-				IClientInfo randomClient = clients[randomIndex];
-				boolean increaseTimeStamp = getRandomNumberInRange(0, 1) == 0;
-				if(increaseTimeStamp) {
-					timestamps[randomIndex] = timestamps[randomIndex] + 1;
-				}
-				int randomAmount = getRandomNumberInRange(0, 100);
-				randomClient.add(createDto(timestamps[randomIndex], Integer.toString(randomAmount)));
-				totalAmount = totalAmount + randomAmount;
-			}
-			for(IClientInfo client : clients) {
-				client.close();
-			}
+			int randomAmount = getRandomNumberInRange(0, 100);
+			randomClient.add(createDto(timestamps[randomIndex], Integer.toString(randomAmount)));
+			totalAmount = totalAmount + randomAmount;
+		}
+		for(IClientInfo client : clients) {
+			client.close();
 		}
 		output.verify(Integer.toString(totalAmount)+".0");
 	}
@@ -124,31 +120,29 @@ public class StreamProcessorTest {
 		CountDownLatch waitTillAllPrepared = new CountDownLatch(1);
 		CountDownLatch waitExecution = new CountDownLatch(clientsLimit);
 		AtomicInteger totalAmount = new AtomicInteger(0);
-		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
-			for(int i=0;i<clientsLimit;i++) {
-				es.execute(new ClientThread(streamProcessor, waitTillAllPrepared, waitExecution, totalAmount));
-			}
-			waitTillAllPrepared.countDown();
-			waitExecution.await();
+		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+		for(int i=0;i<clientsLimit;i++) {
+			es.execute(new ClientThread(streamProcessor, waitTillAllPrepared, waitExecution, totalAmount));
 		}
+		waitTillAllPrepared.countDown();
+		waitExecution.await();
 		output.verify(Integer.toString(totalAmount.get())+".0");
 	}
 	
 	@Test
 	public void connectAndDisconnectOnDifferentMoments() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output)){
-			try(IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache)){
-				clientInfo1.add(createDto(1, "1.0"));
-				clientInfo1.add(createDto(2, "2.0"));
-				clientInfo1.add(createDto(3, "3.0"));
-				output.verify(Integer.toString(1)+".0");
-				try(IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache)){
-					clientInfo2.add(createDto(2, "2.0"));
-				}
-				clientInfo1.add(createDto(3, "3.0"));
-				clientInfo1.add(createDto(4, "1.0"));
+		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+		try(IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache)){
+			clientInfo1.add(createDto(1, "1.0"));
+			clientInfo1.add(createDto(2, "2.0"));
+			clientInfo1.add(createDto(3, "3.0"));
+			output.verify(Integer.toString(1)+".0");
+			try(IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache)){
+				clientInfo2.add(createDto(2, "2.0"));
 			}
+			clientInfo1.add(createDto(3, "3.0"));
+			clientInfo1.add(createDto(4, "1.0"));
 		}
 		output.verify(Integer.toString(12)+".0");
 	}

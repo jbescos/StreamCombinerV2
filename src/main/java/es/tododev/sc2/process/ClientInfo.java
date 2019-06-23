@@ -2,7 +2,6 @@ package es.tododev.sc2.process;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import es.tododev.sc2.common.ErrorCodes;
 import es.tododev.sc2.common.StreamCombinerException;

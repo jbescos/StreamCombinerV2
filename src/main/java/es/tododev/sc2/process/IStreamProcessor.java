@@ -1,9 +1,8 @@
 package es.tododev.sc2.process;
 
-public interface IStreamProcessor extends AutoCloseable {
+public interface IStreamProcessor {
 
 	void push(Dto dto, IClientInfo clientInfo);
-	@Override
-	void close();
+	int pendingTransactions();
 	
 }

@@ -11,11 +11,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import es.tododev.sc2.common.IOutput;
-
 import java.util.Set;
 import java.util.TreeMap;
+
+import es.tododev.sc2.common.IOutput;
 
 public class StreamProcessor implements IStreamProcessor {
 	
@@ -148,10 +147,8 @@ public class StreamProcessor implements IStreamProcessor {
 	}
 
 	@Override
-	public void close() {
-		for(IClientInfo client : new HashSet<>(activeClients.keySet())) {
-			kick(client);
-		}
+	public synchronized int pendingTransactions() {
+		return transactions.size();
 	}
 	
 

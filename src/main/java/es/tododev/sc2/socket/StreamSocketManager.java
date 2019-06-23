@@ -6,16 +6,17 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import es.tododev.sc2.common.CompareCache;
 import es.tododev.sc2.common.ConsoleJsonOutput;
+import es.tododev.sc2.common.ErrorCodes;
 import es.tododev.sc2.common.IInput;
 import es.tododev.sc2.common.IOutput;
 import es.tododev.sc2.common.StreamCombinerException;
@@ -28,15 +29,14 @@ import es.tododev.sc2.process.StreamProcessor;
 
 public class StreamSocketManager {
 
+	public final static int PORT_TO_SWITH_OFF = 40356;
 	private final int nSockets;
 	private final int port;
+	// This is because of the bonus: "imagine that timestamps comparing operation is VERY expensive - try to minimize it's usage."
 	private final Comparator<Long> comparatorCache = new CompareCache();
-	private final Set<Socket> openSockets = Collections.synchronizedSet(new HashSet<>());
-	public final static String SHUTDOWN_COMMAND = "SHUTDOWN";
 	private final IOutput output;
 	private final IInput<Dto> input = new XmlInput();
-	private final ExecutorService service;
-	private final AtomicBoolean running = new AtomicBoolean(true);
+	private final Set<Socket> openSockets = Collections.synchronizedSet(new HashSet<>());
 	
 	public StreamSocketManager(int nSockets, int port) {
 		this(nSockets, port, new ConsoleJsonOutput());
@@ -45,27 +45,53 @@ public class StreamSocketManager {
 	public StreamSocketManager(int nSockets, int port, IOutput output) {
 		this.nSockets = nSockets;
 		this.port = port;
-		this.service = Executors.newFixedThreadPool(nSockets);
 		this.output = output;
 	}
 	
-	public void start() throws IOException {
-		try(ServerSocket serverSocket = new ServerSocket(port);
-			IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);){
-			while(running.get()) {
-				if (openSockets.size() < nSockets) {
-					Socket socket = serverSocket.accept();
-					openSockets.add(socket);
-					writeInSocket(socket, "Connected: "+socket);
-					service.execute(() -> handleRequest(socket, streamProcessor));
-				}
-			}
-			service.shutdown();
+	private void switchOffListener(ServerSocket serverSocket) {
+		try(ServerSocket switchOffSocket = new ServerSocket(PORT_TO_SWITH_OFF)){
+			Socket socket = switchOffSocket.accept();
+			socket.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			stop(serverSocket);
 		}
 	}
 	
-	private void stop() {
-		running.set(false);
+	public void start() {
+		ExecutorService pool = Executors.newFixedThreadPool(nSockets);
+		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+		try(ServerSocket serverSocket = new ServerSocket(port)){
+			Executors.newSingleThreadExecutor().execute(() -> switchOffListener(serverSocket));
+			while(true) {
+				Socket socket = serverSocket.accept();
+				openSockets.add(socket);
+				if(openSockets.size() <= nSockets) {
+					writeInSocket(socket, "Connected: "+socket);
+					pool.execute(() -> handleRequest(socket, streamProcessor));
+				} else {
+					writeInSocket(socket, ErrorCodes.LIMIT_OF_CONNECTIONS.getCode()+": "+ErrorCodes.LIMIT_OF_CONNECTIONS.getMessage());
+					closeSocket(socket);
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}finally {
+			for(Socket socket : new ArrayList<>(openSockets)) {
+				closeSocket(socket);
+			}
+			while(streamProcessor.pendingTransactions() > 0) {}
+		}
+		
+	}
+	
+	private void stop(ServerSocket serverSocket) {
+		try {
+			serverSocket.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	private void handleRequest(Socket socket, IStreamProcessor streamProcessor) {
@@ -77,11 +103,12 @@ public class StreamSocketManager {
 					Dto dto = input.toObject(message);
 					clientInfo.add(dto);
 				} catch (StreamCombinerException e) {
+					e.printStackTrace();
 					writeInSocket(socket, e.getMessage() + ". " + message);
 				}
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
+			// Don't print anything. It is normal to have IO exceptions when client or server closes the socket
 		}
 		closeSocket(socket);
 	}
@@ -99,11 +126,14 @@ public class StreamSocketManager {
 	
 	private void closeSocket(Socket socket) {
 		try {
-			socket.close();
+			if(openSockets.remove(socket)) {
+				System.out.println("Closed: "+socket);
+				socket.close();
+			}
 		} catch (IOException e1) {
 			e1.printStackTrace();
 		}
-		openSockets.remove(socket);
+		
 	}
 	
 	
