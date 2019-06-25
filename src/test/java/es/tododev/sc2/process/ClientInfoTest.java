@@ -29,13 +29,6 @@ public class ClientInfoTest {
 	public void before() {
 		MockitoAnnotations.initMocks(this);
 	}
-
-	@Test
-	public void nullDto() throws StreamCombinerException {
-		IClientInfo clientInfo = new ClientInfo(streamProcessor, comparatorCache);
-		clientInfo.add(null);
-		Mockito.verify(streamProcessor, Mockito.never()).push(Matchers.eq(null), Matchers.eq(clientInfo));
-	}
 	
 	@Test(expected = StreamCombinerException.class)
 	public void obsolete() throws StreamCombinerException {

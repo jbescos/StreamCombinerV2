@@ -145,6 +145,12 @@ public class StreamProcessorTest {
 			clientInfo1.add(createDto(3, "3.0"));
 			output.verify(Integer.toString(1)+".0");
 			try(IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache)){
+				try {
+					clientInfo2.add(createDto(1, "2.0"));
+					fail("It is old");
+				}catch(StreamCombinerException e) {
+					assertEquals(ErrorCodes.OBSOLETE.getCode() + ": " + ErrorCodes.OBSOLETE.getMessage(), e.getMessage());
+				}
 				clientInfo2.add(createDto(2, "2.0"));
 			}
 			clientInfo1.add(createDto(3, "3.0"));

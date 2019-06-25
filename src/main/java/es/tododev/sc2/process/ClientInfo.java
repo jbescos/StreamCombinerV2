@@ -11,7 +11,7 @@ public class ClientInfo implements IClientInfo {
 	private final Comparator<Long> comparatorCache;
 	private final IStreamProcessor streamProcessor;
 	// Keeps the value till a higher timestamp is coming
-	private Dto last;
+	private Dto last = Dto.FIRST_TO_SEND;
 	
 	public ClientInfo(IStreamProcessor streamProcessor, Comparator<Long> comparatorCache) {
 		this.streamProcessor = streamProcessor;
