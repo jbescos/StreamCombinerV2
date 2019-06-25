@@ -13,10 +13,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import es.tododev.sc2.common.ErrorCodes;
 import es.tododev.sc2.common.IOutput;
-import es.tododev.sc2.common.StreamCombinerException;
 
 public class StreamProcessor implements IStreamProcessor {
 	
@@ -24,7 +25,9 @@ public class StreamProcessor implements IStreamProcessor {
 	private final TreeMap<Long, List<Entry<Dto, IClientInfo>>> transactions;
 	private final IKickPolicy kickPolicy;
 	private final IOutput output;
-	private long lastTimestamp = -1;
+	private final Executor asyncTask = Executors.newSingleThreadExecutor();
+	// Flag to know is asyncTask wants to kick.
+	private AtomicBoolean kickIsRunning = new AtomicBoolean(false);
 	
 	public StreamProcessor(Comparator<Long> comparatorCache, IKickPolicy kickPolicy, IOutput output) {
 		this.kickPolicy = kickPolicy;
@@ -38,46 +41,22 @@ public class StreamProcessor implements IStreamProcessor {
 	}
 
 	@Override
-	public synchronized void push(Dto dto, IClientInfo clientInfo) throws StreamCombinerException {
-		if(dto.getTimestamp() > lastTimestamp) {
-			if(!activeClients.contains(clientInfo)) {
-				activeClients.add(clientInfo);
-			}
-			if(transactions.containsKey(dto.getTimestamp())) {
-				if(!mergeSameTimestampSameClient(dto, clientInfo)) {
-					addTransaction(dto, clientInfo);
-				}
-			} else {
-				addTransaction(dto, clientInfo);
-			}
-			trySendOutput();
-			// add solution in case if some input streams hang.
-			if(kickPolicy.isKickRequired(transactions)) {
-				unregister(clientToKick());
-			}
+	public synchronized void push(Dto dto, IClientInfo clientInfo) {
+		if(dto == Dto.LAST_TO_SEND) {
+			activeClients.remove(clientInfo);
+		} else if (dto == Dto.FIRST_TO_SEND){
+			activeClients.add(clientInfo);
 		} else {
-			throw new StreamCombinerException(ErrorCodes.OBSOLETE);
+			addTransaction(dto, clientInfo);
 		}
-		
-	}
-	
-	private void trySendOutput() {
 		List<Dto> dtos = getTransactionsToProcess();
 		if(!dtos.isEmpty()) {
 			output.process(dtos);
-			lastTimestamp = dtos.get(dtos.size()-1).getTimestamp();
 		}
-	}
-	
-	private boolean mergeSameTimestampSameClient(Dto dto, IClientInfo clientInfo) {
-		List<Entry<Dto, IClientInfo>> transactionsInTimestamp = transactions.get(dto.getTimestamp());
-		for(Entry<Dto, IClientInfo> entries : transactionsInTimestamp) {
-			if(entries.getValue() == clientInfo) {
-				entries.getKey().setAmount(entries.getKey().getAmount().add(dto.getAmount()));
-				return true;
-			}
+		// add solution in case if some input streams hang.
+		if(!kickIsRunning.get() && kickPolicy.isKickRequired(transactions)) {
+			kick(clientToKick());
 		}
-		return false;
 	}
 	
 	private Map<IClientInfo,Integer> createCounterMap(){
@@ -166,17 +145,21 @@ public class StreamProcessor implements IStreamProcessor {
 		}
 		return null;
 	}
-
-	@Override
-	public synchronized void register(IClientInfo clientInfo) {
-		activeClients.add(clientInfo);
+	
+	private void kick(IClientInfo client) {
+		if(client != null) {
+			kickIsRunning.set(true);
+			// Avoid deadlocks
+			asyncTask.execute(() -> {
+				client.close();
+				kickIsRunning.set(false);
+			});
+		}
 	}
 
-
 	@Override
-	public synchronized void unregister(IClientInfo clientInfo) {
-		activeClients.remove(clientInfo);
-		trySendOutput();
+	public synchronized int pendingTransactions() {
+		return transactions.size();
 	}
 	
 

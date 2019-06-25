@@ -1,33 +1,62 @@
 package es.tododev.sc2.process;
 
+import java.math.BigDecimal;
+import java.util.Comparator;
+
+import es.tododev.sc2.common.ErrorCodes;
 import es.tododev.sc2.common.StreamCombinerException;
 
 public class ClientInfo implements IClientInfo {
 
+	private final Comparator<Long> comparatorCache;
 	private final IStreamProcessor streamProcessor;
+	// Keeps the value till a higher timestamp is coming
+	private Dto last;
 	
-	public ClientInfo(IStreamProcessor streamProcessor) {
+	public ClientInfo(IStreamProcessor streamProcessor, Comparator<Long> comparatorCache) {
 		this.streamProcessor = streamProcessor;
-		streamProcessor.register(this);
+		this.comparatorCache = comparatorCache;
+		this.streamProcessor.push(Dto.FIRST_TO_SEND, this);
 	}
 	
 	/**
 	 * Could be invoked by other threads (for example KickPolicy)
-	 * @throws StreamCombinerException 
 	 */
 	@Override
-	public void add(Dto dto) throws StreamCombinerException {
-		streamProcessor.push(dto, this);
+	public synchronized void add(Dto dto) throws StreamCombinerException {
+		if(last != null) {
+			int compareResult = comparatorCache.compare(last.getTimestamp(), dto.getTimestamp());
+			if(compareResult == 0) {
+				BigDecimal total = last.getAmount().add(dto.getAmount());
+				dto.setAmount(total);
+			} else if(compareResult < 0) {
+				streamProcessor.push(last, this);
+			} else {
+				throw new StreamCombinerException(ErrorCodes.OBSOLETE);
+			}
+		}
+		if(dto == Dto.LAST_TO_SEND) {
+			streamProcessor.push(Dto.LAST_TO_SEND, this);
+			last = Dto.FIRST_TO_SEND;
+		} else {
+			last = dto;
+		}
 	}
 
 	@Override
 	public void close() {
-		streamProcessor.unregister(this);
+		try {
+			add(Dto.LAST_TO_SEND);
+		} catch (StreamCombinerException e) {
+			// Cannot happen
+		}
 	}
 
 	@Override
 	public String toString() {
 		return "Client: "+super.toString().split("@")[1];
 	}
+	
+	
 	
 }
