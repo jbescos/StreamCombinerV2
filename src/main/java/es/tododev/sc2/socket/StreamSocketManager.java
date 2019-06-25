@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import es.tododev.sc2.common.CompareCache;
 import es.tododev.sc2.common.ConsoleJsonOutput;
@@ -61,8 +62,8 @@ public class StreamSocketManager {
 	
 	public void start() {
 		ExecutorService pool = Executors.newFixedThreadPool(nSockets);
-		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
-		try(ServerSocket serverSocket = new ServerSocket(port)){
+		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+				ServerSocket serverSocket = new ServerSocket(port)){
 			Executors.newSingleThreadExecutor().execute(() -> switchOffListener(serverSocket));
 			while(true) {
 				Socket socket = serverSocket.accept();
@@ -81,7 +82,12 @@ public class StreamSocketManager {
 			for(Socket socket : new ArrayList<>(openSockets)) {
 				closeSocket(socket);
 			}
-			while(streamProcessor.pendingTransactions() > 0) {}
+			pool.shutdown();
+			try {
+				pool.awaitTermination(1, TimeUnit.MINUTES);
+			} catch (InterruptedException e) {
+				System.err.println("It was not possible to shutdown gracefully. There could be unprocessed transactions.");
+			}
 		}
 		
 	}

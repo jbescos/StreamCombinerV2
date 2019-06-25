@@ -6,6 +6,6 @@ public interface IClientInfo extends AutoCloseable {
 
 	void add(Dto dto) throws StreamCombinerException;
 	@Override
-	void close();
+ 	void close();
 	
 }

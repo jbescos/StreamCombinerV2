@@ -16,7 +16,11 @@ public class ClientInfo implements IClientInfo {
 	public ClientInfo(IStreamProcessor streamProcessor, Comparator<Long> comparatorCache) {
 		this.streamProcessor = streamProcessor;
 		this.comparatorCache = comparatorCache;
-		this.streamProcessor.push(Dto.FIRST_TO_SEND, this);
+		try {
+			this.streamProcessor.push(Dto.FIRST_TO_SEND, this);
+		} catch (StreamCombinerException e) {
+			// Cannot happen
+		}
 	}
 	
 	/**
@@ -24,6 +28,13 @@ public class ClientInfo implements IClientInfo {
 	 */
 	@Override
 	public synchronized void add(Dto dto) throws StreamCombinerException {
+		if(last == Dto.FIRST_TO_SEND) {
+			// Client reconnected, we need to check immediately the last processed time stamp
+			int compareResult = comparatorCache.compare(streamProcessor.getLastProcessedTimestamp(), dto.getTimestamp());
+			if(compareResult != -1) {
+				throw new StreamCombinerException(ErrorCodes.OBSOLETE);
+			}
+		}
 		if(last != null) {
 			int compareResult = comparatorCache.compare(last.getTimestamp(), dto.getTimestamp());
 			if(compareResult == 0) {

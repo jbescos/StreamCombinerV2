@@ -14,10 +14,14 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import es.tododev.sc2.common.ErrorCodes;
 import es.tododev.sc2.common.IOutput;
+import es.tododev.sc2.common.StreamCombinerException;
 
 public class StreamProcessor implements IStreamProcessor {
 	
@@ -25,12 +29,15 @@ public class StreamProcessor implements IStreamProcessor {
 	private final TreeMap<Long, List<Entry<Dto, IClientInfo>>> transactions;
 	private final IKickPolicy kickPolicy;
 	private final IOutput output;
-	private final Executor asyncTask = Executors.newSingleThreadExecutor();
+	private final ExecutorService asyncTask = Executors.newSingleThreadExecutor();
 	// Flag to know is asyncTask wants to kick.
 	private AtomicBoolean kickIsRunning = new AtomicBoolean(false);
+	private final Comparator<Long> comparatorCache;
+	private long lastTimestamp = -1;
 	
 	public StreamProcessor(Comparator<Long> comparatorCache, IKickPolicy kickPolicy, IOutput output) {
 		this.kickPolicy = kickPolicy;
+		this.comparatorCache = comparatorCache;
 		this.transactions = new TreeMap<>(comparatorCache);
 		this.output = output;
 	}
@@ -41,22 +48,29 @@ public class StreamProcessor implements IStreamProcessor {
 	}
 
 	@Override
-	public synchronized void push(Dto dto, IClientInfo clientInfo) {
+	public synchronized void push(Dto dto, IClientInfo clientInfo) throws StreamCombinerException {
 		if(dto == Dto.LAST_TO_SEND) {
 			activeClients.remove(clientInfo);
 		} else if (dto == Dto.FIRST_TO_SEND){
 			activeClients.add(clientInfo);
 		} else {
-			addTransaction(dto, clientInfo);
+			int compareResult = comparatorCache.compare(dto.getTimestamp(), lastTimestamp);			
+			if(compareResult == 1) {
+				addTransaction(dto, clientInfo);
+			} else {
+				throw new StreamCombinerException(ErrorCodes.OBSOLETE);
+			}
 		}
 		List<Dto> dtos = getTransactionsToProcess();
 		if(!dtos.isEmpty()) {
+			lastTimestamp = dtos.get(dtos.size()-1).getTimestamp();
 			output.process(dtos);
 		}
 		// add solution in case if some input streams hang.
 		if(!kickIsRunning.get() && kickPolicy.isKickRequired(transactions)) {
 			kick(clientToKick());
 		}
+		
 	}
 	
 	private Map<IClientInfo,Integer> createCounterMap(){
@@ -157,9 +171,21 @@ public class StreamProcessor implements IStreamProcessor {
 		}
 	}
 
+
 	@Override
-	public synchronized int pendingTransactions() {
-		return transactions.size();
+	public void close() {
+		asyncTask.shutdown();
+		try {
+			asyncTask.awaitTermination(1, TimeUnit.MINUTES);
+		} catch (InterruptedException e) {
+			System.err.println("It was not possible to shutdown gracefully. There could be unprocessed transactions.");
+		}
+	}
+
+
+	@Override
+	public long getLastProcessedTimestamp() {
+		return lastTimestamp;
 	}
 	
 

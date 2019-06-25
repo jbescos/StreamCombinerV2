@@ -1,8 +1,12 @@
 package es.tododev.sc2.process;
 
-public interface IStreamProcessor {
+import es.tododev.sc2.common.StreamCombinerException;
 
-	void push(Dto dto, IClientInfo clientInfo);
-	int pendingTransactions();
+public interface IStreamProcessor extends AutoCloseable {
+
+	void push(Dto dto, IClientInfo clientInfo) throws StreamCombinerException;
+	@Override
+ 	void close();
+	long getLastProcessedTimestamp();
 	
 }

@@ -24,8 +24,7 @@ public class StreamProcessorTest {
 	@Test
 	public void inSequence() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
-		try(
+		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
 			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
 			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
 		){
@@ -43,8 +42,9 @@ public class StreamProcessorTest {
 	@Test
 	public void repeatingTimestamps() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+		
 		try(
+			IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
 			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
 			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
 		){
@@ -67,8 +67,8 @@ public class StreamProcessorTest {
 	@Test
 	public void bugRepeatedOutput() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
 		try(
+			IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
 			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
 			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
 		){
@@ -113,6 +113,7 @@ public class StreamProcessorTest {
 		for(IClientInfo client : clients) {
 			client.close();
 		}
+		streamProcessor.close();
 		output.verify(Integer.toString(totalAmount)+".0");
 	}
 	
@@ -130,6 +131,7 @@ public class StreamProcessorTest {
 		}
 		waitTillAllPrepared.countDown();
 		waitExecution.await();
+		streamProcessor.close();
 		output.verify(Integer.toString(totalAmount.get())+".0");
 	}
 	
@@ -148,6 +150,7 @@ public class StreamProcessorTest {
 			clientInfo1.add(createDto(3, "3.0"));
 			clientInfo1.add(createDto(4, "1.0"));
 		}
+		streamProcessor.close();
 		output.verify(Integer.toString(12)+".0");
 	}
 	
@@ -155,21 +158,27 @@ public class StreamProcessorTest {
 	public void kick() throws StreamCombinerException, InterruptedException {
 		int kickLimitSize = 2;
 		OutputVerifier output = new OutputVerifier();
-		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, transactions -> transactions.size() == kickLimitSize, output);
+		
 		try(
+				IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, transactions -> transactions.size() == kickLimitSize, output);
 				IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
 				IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
 			){
 			clientInfo2.add(createDto(0, "10.0"));
 			clientInfo1.add(createDto(1, "2.0"));
-			assertEquals(0, streamProcessor.pendingTransactions());
 			clientInfo1.add(createDto(2, "3.0"));
-			assertEquals(1, streamProcessor.pendingTransactions());
 			clientInfo1.add(createDto(3, "4.0"));
 			// Kick process is running to kick clientInfo2
 			Thread.sleep(2000L);
 			output.verify(Integer.toString(12)+".0");
 			// But he can still send new data if the timestamp is valid
+			try {
+				System.out.println("Add wrong");
+				clientInfo2.add(createDto(1, "-100.0"));
+				fail("Timestamp is expired");
+			}catch(StreamCombinerException e) {
+				assertEquals(ErrorCodes.OBSOLETE.getCode() + ": " + ErrorCodes.OBSOLETE.getMessage(), e.getMessage());
+			}
 			clientInfo2.add(createDto(8, "8.0"));
 			clientInfo1.add(createDto(9, "2.0"));
 			clientInfo2.add(createDto(8, "1.0"));
