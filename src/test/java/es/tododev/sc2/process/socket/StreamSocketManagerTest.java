@@ -10,9 +10,6 @@ import java.util.concurrent.Executors;
 
 import org.junit.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
 import es.tododev.sc2.process.OutputVerifier;
 import es.tododev.sc2.socket.StreamSocketManager;
 

@@ -1,5 +1,7 @@
 package es.tododev.sc2.process;
 
+import static org.junit.Assert.fail;
+
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.Random;
@@ -8,10 +10,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.Assert;
 import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 import es.tododev.sc2.common.CompareCache;
 import es.tododev.sc2.common.ErrorCodes;
@@ -24,9 +24,10 @@ public class StreamProcessorTest {
 	@Test
 	public void inSequence() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
-			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
-			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+		try(
+			IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache, 2);
+			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache, 2);
 		){
 			clientInfo1.add(createDto(1, "10.0"));
 			clientInfo2.add(createDto(20, "5.0"));
@@ -34,7 +35,6 @@ public class StreamProcessorTest {
 			clientInfo1.add(createDto(23, "10.0"));
 			clientInfo2.add(createDto(25, "2.0"));
 			clientInfo1.add(createDto(27, "-80.0"));
-			output.verify("10.0");
 		}
 		output.verify("-52.0");
 	}
@@ -42,11 +42,10 @@ public class StreamProcessorTest {
 	@Test
 	public void repeatingTimestamps() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		
 		try(
 			IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
-			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
-			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache, 2);
+			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache, 2);
 		){
 			clientInfo1.add(createDto(1, "10.0"));
 			clientInfo1.add(createDto(1, "20.0"));
@@ -59,7 +58,6 @@ public class StreamProcessorTest {
 			clientInfo1.add(createDto(27, "80.0"));
 			clientInfo2.add(createDto(26, "2.0"));
 			clientInfo1.add(createDto(28, "80.2656"));
-			output.verify("76.0");
 		}
 		output.verify("250.2656");
 	}
@@ -69,8 +67,8 @@ public class StreamProcessorTest {
 		OutputVerifier output = new OutputVerifier();
 		try(
 			IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
-			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
-			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache, 2);
+			IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache, 2);
 		){
 			clientInfo1.add(createDto(1, "15.0"));
 			clientInfo1.add(createDto(1, "63.0"));
@@ -113,7 +111,6 @@ public class StreamProcessorTest {
 		for(IClientInfo client : clients) {
 			client.close();
 		}
-		streamProcessor.close();
 		output.verify(Integer.toString(totalAmount)+".0");
 	}
 	
@@ -131,67 +128,67 @@ public class StreamProcessorTest {
 		}
 		waitTillAllPrepared.countDown();
 		waitExecution.await();
-		streamProcessor.close();
 		output.verify(Integer.toString(totalAmount.get())+".0");
 	}
 	
 	@Test
 	public void connectAndDisconnectOnDifferentMoments() throws StreamCombinerException {
 		OutputVerifier output = new OutputVerifier();
-		IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
-		try(IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache)){
+		
+		try(IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, output);
+			IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache, 2)){
 			clientInfo1.add(createDto(1, "1.0"));
 			clientInfo1.add(createDto(2, "2.0"));
 			clientInfo1.add(createDto(3, "3.0"));
-			output.verify(Integer.toString(1)+".0");
-			try(IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache)){
+			clientInfo1.add(createDto(4, "4.0"));
+			clientInfo1.add(createDto(5, "5.0"));
+			clientInfo1.add(createDto(6, "6.0"));
+			try(IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache, 2)){
 				try {
 					clientInfo2.add(createDto(1, "2.0"));
 					fail("It is old");
 				}catch(StreamCombinerException e) {
-					assertEquals(ErrorCodes.OBSOLETE.getCode() + ": " + ErrorCodes.OBSOLETE.getMessage(), e.getMessage());
+					Assert.assertTrue(e.getMessage().contains(ErrorCodes.OBSOLETE.getCode()));
 				}
-				clientInfo2.add(createDto(2, "2.0"));
+				clientInfo2.add(createDto(4, "2.0"));
 			}
-			clientInfo1.add(createDto(3, "3.0"));
-			clientInfo1.add(createDto(4, "1.0"));
+			clientInfo1.add(createDto(6, "1.0"));
 		}
-		streamProcessor.close();
-		output.verify(Integer.toString(12)+".0");
+		output.verify(Integer.toString(24)+".0");
 	}
 	
 	@Test
 	public void kick() throws StreamCombinerException, InterruptedException {
-		int kickLimitSize = 2;
+		int kickLimitSize = 3;
 		OutputVerifier output = new OutputVerifier();
-		
 		try(
 				IStreamProcessor streamProcessor = new StreamProcessor(comparatorCache, transactions -> transactions.size() == kickLimitSize, output);
-				IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache);
-				IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache);
+				IClientInfo clientInfo1 = new ClientInfo(streamProcessor, comparatorCache, 2);
+				IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache, 2);
 			){
 			clientInfo2.add(createDto(0, "10.0"));
+			clientInfo2.add(createDto(1, "11.0"));
+			clientInfo2.add(createDto(2, "12.0"));
 			clientInfo1.add(createDto(1, "2.0"));
 			clientInfo1.add(createDto(2, "3.0"));
 			clientInfo1.add(createDto(3, "4.0"));
+			clientInfo1.add(createDto(4, "5.0"));
 			// Kick process is running to kick clientInfo2
 			Thread.sleep(2000L);
-			output.verify(Integer.toString(12)+".0");
 			// But he can still send new data if the timestamp is valid
 			try {
 				System.out.println("Add wrong");
-				clientInfo2.add(createDto(1, "-100.0"));
+				clientInfo2.add(createDto(1, "-1000.0"));
 				fail("Timestamp is expired");
 			}catch(StreamCombinerException e) {
-				assertEquals(ErrorCodes.OBSOLETE.getCode() + ": " + ErrorCodes.OBSOLETE.getMessage(), e.getMessage());
+				Assert.assertTrue(e.getMessage().contains(ErrorCodes.OBSOLETE.getCode()));
 			}
 			clientInfo2.add(createDto(8, "8.0"));
 			clientInfo1.add(createDto(9, "2.0"));
 			clientInfo2.add(createDto(8, "1.0"));
-			output.verify(Integer.toString(12)+".0");
 			
 		}
-		output.verify(Integer.toString(30)+".0");
+		output.verify(Integer.toString(58)+".0");
 		
 	}
 	

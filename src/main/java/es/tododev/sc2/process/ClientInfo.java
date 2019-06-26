@@ -1,6 +1,5 @@
 package es.tododev.sc2.process;
 
-import java.math.BigDecimal;
 import java.util.Comparator;
 
 import es.tododev.sc2.common.ErrorCodes;
@@ -10,56 +9,80 @@ public class ClientInfo implements IClientInfo {
 
 	private final Comparator<Long> comparatorCache;
 	private final IStreamProcessor streamProcessor;
-	// Keeps the value till a higher timestamp is coming
-	private Dto last = Dto.FIRST_TO_SEND;
+	private Dto[] buffer;
+	private boolean registered = false;
+	private long lastValidTimestamp = -1;
+	private int idx = -1;
 	
 	public ClientInfo(IStreamProcessor streamProcessor, Comparator<Long> comparatorCache) {
+		this(streamProcessor, comparatorCache, 50);
+	}
+	
+	public ClientInfo(IStreamProcessor streamProcessor, Comparator<Long> comparatorCache, int bufferSize) {
+		if(bufferSize < 2) {
+			throw new IllegalArgumentException("Minimun buffer size is 2");
+		}
 		this.streamProcessor = streamProcessor;
 		this.comparatorCache = comparatorCache;
-		try {
-			this.streamProcessor.push(Dto.FIRST_TO_SEND, this);
-		} catch (StreamCombinerException e) {
-			// Cannot happen
+		this.buffer = new Dto[bufferSize];
+		register();
+	}
+	
+	private boolean register() {
+		boolean canRepeatTimestamp;
+		if(!registered) {
+			streamProcessor.register(this);
+			lastValidTimestamp = streamProcessor.getLastProcessedTimestamp();
+			registered = true;
+			canRepeatTimestamp = false;
+		}else {
+			canRepeatTimestamp = true;
+		}
+		return canRepeatTimestamp;
+	}
+	
+	@Override
+	public synchronized void add(Dto dto) throws StreamCombinerException {
+		boolean canRepeatTimestamp = register();
+		int compareResult = comparatorCache.compare(lastValidTimestamp, dto.getTimestamp());
+		if(compareResult == 1) {
+			throw new StreamCombinerException(ErrorCodes.OBSOLETE, "Last valid timestamp was "+lastValidTimestamp+" but new transaciton has "+dto.getTimestamp());
+		}else if(compareResult == 0) {
+			if(!canRepeatTimestamp) {
+				throw new StreamCombinerException(ErrorCodes.OBSOLETE, "Last valid timestamp was "+lastValidTimestamp+" but new transaciton has "+dto.getTimestamp());
+			} else {
+				Dto inBuffer = buffer[idx];
+				inBuffer.setAmount(inBuffer.getAmount().add(dto.getAmount()));
+			}
+		} else {
+			idx++;
+			if(idx == buffer.length) {
+				int lastIdx = idx - 1;
+				Dto last = buffer[lastIdx];
+				buffer[lastIdx] = null;
+				sendToProcessor();
+				buffer[0] = last;
+				idx = 1;
+			}
+			buffer[idx] = dto;
+			lastValidTimestamp = dto.getTimestamp();
 		}
 	}
 	
-	/**
-	 * Could be invoked by other threads (for example KickPolicy)
-	 */
-	@Override
-	public synchronized void add(Dto dto) throws StreamCombinerException {
-		if(last == Dto.FIRST_TO_SEND) {
-			// Client reconnected, we need to check immediately the last processed time stamp
-			int compareResult = comparatorCache.compare(streamProcessor.getLastProcessedTimestamp(), dto.getTimestamp());
-			if(compareResult != -1) {
-				throw new StreamCombinerException(ErrorCodes.OBSOLETE);
-			}
-		}
-		if(last != null) {
-			int compareResult = comparatorCache.compare(last.getTimestamp(), dto.getTimestamp());
-			if(compareResult == 0) {
-				BigDecimal total = last.getAmount().add(dto.getAmount());
-				dto.setAmount(total);
-			} else if(compareResult < 0) {
-				streamProcessor.push(last, this);
-			} else {
-				throw new StreamCombinerException(ErrorCodes.OBSOLETE);
-			}
-		}
-		if(dto == Dto.LAST_TO_SEND) {
-			streamProcessor.push(Dto.LAST_TO_SEND, this);
-			last = Dto.FIRST_TO_SEND;
-		} else {
-			last = dto;
-		}
+	private void sendToProcessor() {
+		streamProcessor.push(this, buffer);
+		int size = buffer.length;
+		buffer = new Dto[size];
 	}
 
 	@Override
-	public void close() {
-		try {
-			add(Dto.LAST_TO_SEND);
-		} catch (StreamCombinerException e) {
-			// Cannot happen
+	public synchronized void close() {
+		if(registered) {
+			sendToProcessor();
+			streamProcessor.unregister(this);
+			registered = false;
+			idx = -1;
+			streamProcessor.push(this, new Dto[0]);
 		}
 	}
 

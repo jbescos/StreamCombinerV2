@@ -1,11 +1,13 @@
 package es.tododev.sc2.process;
 
+import static org.junit.Assert.assertEquals;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import org.junit.Assert;
 
 import es.tododev.sc2.common.IOutput;
 
@@ -22,17 +24,24 @@ public class OutputVerifier implements IOutput {
 	}
 	
 	public void verify(String expectedAmount) {
+		String totalStr = total.toString();
+		boolean failed = false;
+		Long next = null;
 		for(int i=0;i<total.size()-1;i++) {
 			Long current = total.get(i).getTimestamp();
-			Long next = total.get(i+1).getTimestamp();
+			next = total.get(i+1).getTimestamp();
 			int compare = current.compareTo(next);
-			assertEquals("Check "+next+": "+total.toString(), -1, compare);
+			if(-1 != compare) {
+				failed = true;
+				break;
+			}
 		}
+		Assert.assertFalse("Check "+next+": "+totalStr, failed);
 		BigDecimal totalAmount = new BigDecimal("0.0");
 		for(Dto dto : total) {
 			totalAmount = totalAmount.add(dto.getAmount());
 		}
-		assertEquals(total.toString(), new BigDecimal(expectedAmount), totalAmount);
+		assertEquals(totalStr, new BigDecimal(expectedAmount), totalAmount);
 	}
 
 }
