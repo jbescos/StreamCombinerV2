@@ -24,7 +24,7 @@ public class ConsoleJsonOutput implements IOutput {
 				builder.append("\n").append(ErrorCodes.DESERIALIZE_OUTPUT.getCode() + ": " + ErrorCodes.DESERIALIZE_OUTPUT.getMessage() + ". " + transaction);
 			}
 		}
-		System.out.println(builder.toString());
+		System.out.print(builder.toString());
 		
 	}
 	
