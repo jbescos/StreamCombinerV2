@@ -35,8 +35,13 @@ public class ClientInfo implements IClientInfo {
 			lastValidTimestamp = streamProcessor.getLastProcessedTimestamp();
 			registered = true;
 			canRepeatTimestamp = false;
-		}else {
-			canRepeatTimestamp = true;
+		} else {
+		    if(idx == -1) {
+		        // First time the client sends a transaction, we force to not repeat
+		        canRepeatTimestamp = false;
+		    } else {
+		        canRepeatTimestamp = true;
+		    }
 		}
 		return canRepeatTimestamp;
 	}

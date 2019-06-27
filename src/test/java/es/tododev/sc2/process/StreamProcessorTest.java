@@ -152,9 +152,17 @@ public class StreamProcessorTest {
 				}
 				clientInfo2.add(createDto(4, "2.0"));
 			}
+			try(IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache, 2)){
+			    clientInfo2.add(createDto(3, "-1000.0"));
+			}catch(StreamCombinerException e) {
+                Assert.assertTrue(e.getMessage().contains(ErrorCodes.OBSOLETE.getCode()));
+            }
+			try(IClientInfo clientInfo2 = new ClientInfo(streamProcessor, comparatorCache, 2)){
+                clientInfo2.add(createDto(4, "7.0"));
+            }
 			clientInfo1.add(createDto(6, "1.0"));
 		}
-		output.verify(Integer.toString(24)+".0");
+		output.verify(Integer.toString(31)+".0");
 	}
 	
 	@Test
@@ -177,7 +185,7 @@ public class StreamProcessorTest {
 			Thread.sleep(2000L);
 			// But he can still send new data if the timestamp is valid
 			try {
-				System.out.println("Add wrong");
+				// Add wrong
 				clientInfo2.add(createDto(1, "-1000.0"));
 				fail("Timestamp is expired");
 			}catch(StreamCombinerException e) {
